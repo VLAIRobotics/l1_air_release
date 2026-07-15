@@ -1,0 +1,1180 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XArm 控制面板</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      .header {
+        background: white;
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .header h1 {
+        color: #667eea;
+        font-size: 2em;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .status-badge {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.9em;
+        font-weight: bold;
+      }
+
+      .status-online {
+        background: #10b981;
+        color: white;
+      }
+
+      .status-offline {
+        background: #ef4444;
+        color: white;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+
+      .card {
+        background: white;
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      }
+
+      .card h2 {
+        color: #667eea;
+        margin-bottom: 20px;
+        font-size: 1.5em;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 10px;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        color: #4b5563;
+        font-weight: 600;
+      }
+
+      .form-group input,
+      .form-group select {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 1em;
+        transition: border-color 0.3s;
+      }
+
+      .form-group input:focus,
+      .form-group select:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .checkbox-group input[type="checkbox"] {
+        width: auto;
+        cursor: pointer;
+      }
+
+      .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 1em;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      .btn-primary {
+        background: #667eea;
+        color: white;
+      }
+
+      .btn-success {
+        background: #10b981;
+        color: white;
+      }
+
+      .btn-danger {
+        background: #ef4444;
+        color: white;
+      }
+
+      .btn-warning {
+        background: #f59e0b;
+        color: white;
+      }
+
+      .btn-info {
+        background: #3b82f6;
+        color: white;
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .process-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        background: #f3f4f6;
+        border-radius: 8px;
+        margin-bottom: 10px;
+      }
+
+      .process-name {
+        font-weight: 600;
+        color: #374151;
+      }
+
+      .process-status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+
+      .status-running {
+        background: #10b981;
+        animation: pulse 2s infinite;
+      }
+
+      .status-stopped {
+        background: #9ca3af;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .log-console {
+        background: #1e293b;
+        color: #e2e8f0;
+        padding: 15px;
+        border-radius: 8px;
+        max-height: 300px;
+        overflow-y: auto;
+        font-family: "Courier New", monospace;
+        font-size: 0.9em;
+        line-height: 1.6;
+      }
+
+      .log-entry {
+        margin-bottom: 5px;
+      }
+
+      .log-stdout {
+        color: #10b981;
+      }
+
+      .log-stderr {
+        color: #ef4444;
+      }
+
+      .info-box {
+        background: #dbeafe;
+        border-left: 4px solid #3b82f6;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+      }
+
+      .alert {
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+      }
+
+      .alert-success {
+        background: #d1fae5;
+        border-left: 4px solid #10b981;
+        color: #065f46;
+      }
+
+      .alert-error {
+        background: #fee2e2;
+        border-left: 4px solid #ef4444;
+        color: #991b1b;
+      }
+
+      .topic-list {
+        max-height: 300px;
+        overflow-y: auto;
+        background: #f9fafb;
+        padding: 10px;
+        border-radius: 8px;
+      }
+
+      .topic-item {
+        padding: 8px;
+        background: white;
+        margin-bottom: 5px;
+        border-radius: 5px;
+        font-family: monospace;
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+          <h1>🤖 XArm 控制面板</h1>
+          <div>
+            <span
+              :class="['status-badge', connected ? 'status-online' : 'status-offline']">
+              {{ connected ? '✓ 已连接' : '✗ 未连接' }}
+            </span>
+          </div>
+        </div>
+
+        <!-- 消息提示 -->
+        <div
+          v-if="alertMessage"
+          :class="['alert', alertType === 'success' ? 'alert-success' : 'alert-error']">
+          {{ alertMessage }}
+        </div>
+
+        <!-- 主功能区 -->
+        <div class="grid">
+          <!-- CAN 接口管理 -->
+          <div class="card">
+            <h2>🔌 CAN 接口管理</h2>
+
+            <div class="info-box">
+              <strong>⚠️ 重要：</strong> 使用机械臂前必须先配置 CAN 接口！<br />
+              <!-- <span style="font-size: 0.9em; margin-top: 5px; display: block;">
+                            接口状态必须为 <strong style="color: #10b981;">UP</strong> 才能正常使用。<br>
+                            如果自动配置失败，请在终端手动运行：<br>
+                            <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">
+                                sudo ~/Documents/vlai/x_series/x_air/src/xarm_can/setup/setup_can_interfaces.sh
+                            </code>
+                        </span> -->
+            </div>
+
+            <div>
+              <button class="btn btn-warning" @click="setupCanInterfaces">
+                ⚙️ 配置 CAN 接口
+              </button>
+              <button class="btn btn-info" @click="checkCanStatus">
+                🔍 检查接口状态
+              </button>
+            </div>
+
+            <div v-if="canInterfaces.length > 0" style="margin-top: 15px">
+              <h3 style="margin-bottom: 10px; color: #4b5563">
+                检测到的 CAN 接口 ({{ canInterfaces.length }})
+                <span
+                  v-if="canInterfacesUp > 0"
+                  style="color: #10b981; font-size: 0.9em">
+                  - {{ canInterfacesUp }} 个正常运行
+                </span>
+              </h3>
+              <div class="topic-list">
+                <div
+                  v-for="iface in canInterfaces"
+                  :key="iface.name"
+                  class="topic-item"
+                  :style="{ 'border-left': iface.is_up ? '4px solid #10b981' : '4px solid #ef4444' }">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <strong
+                      :style="{ color: iface.is_up ? '#10b981' : '#ef4444' }">
+                      {{ iface.is_up ? '✓' : '✗' }} {{ iface.name }}
+                    </strong>
+                    <span
+                      :style="{ 
+                                        fontSize: '0.8em', 
+                                        padding: '2px 8px', 
+                                        borderRadius: '12px',
+                                        background: iface.is_up ? '#d1fae5' : '#fee2e2',
+                                        color: iface.is_up ? '#065f46' : '#991b1b',
+                                        fontWeight: 'bold'
+                                    }">
+                      {{ iface.is_up ? 'UP' : 'DOWN' }}
+                    </span>
+                  </div>
+                  <div
+                    style="font-size: 0.85em; color: #6b7280; margin-top: 3px">
+                    {{ iface.status }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 遥操作控制 -->
+          <div class="card">
+            <h2>🎮 遥操作控制</h2>
+
+            <div class="form-group">
+              <label>选择机械臂</label>
+              <select v-model="teleop.armSide">
+                <option value="right_arm">右臂 (Right Arm)</option>
+                <option value="left_arm">左臂 (Left Arm)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>主臂 CAN 接口</label>
+              <input v-model="teleop.leaderCan" placeholder="can0" />
+            </div>
+
+            <div class="form-group">
+              <label>从臂 CAN 接口</label>
+              <input v-model="teleop.followerCan" placeholder="can1" />
+            </div>
+
+            <div class="form-group checkbox-group">
+              <input type="checkbox" id="use-ros2" v-model="teleop.useRos2" />
+              <label for="use-ros2">启用 ROS2 节点</label>
+            </div>
+
+            <div>
+              <button
+                class="btn btn-success"
+                @click="startTeleop"
+                :disabled="isTeleopRunning">
+                ▶️ 启动遥操作
+              </button>
+              <button
+                class="btn btn-danger"
+                @click="stopTeleop"
+                :disabled="!isTeleopRunning">
+                ⏹️ 停止遥操作
+              </button>
+            </div>
+          </div>
+
+          <!-- ROS 系统监控 -->
+          <div class="card">
+            <h2>📊 ROS 系统监控</h2>
+
+            <div>
+              <button class="btn btn-info" @click="refreshTopics">
+                🔄 刷新话题
+              </button>
+              <button class="btn btn-info" @click="refreshNodes">
+                🔄 刷新节点
+              </button>
+            </div>
+
+            <div v-if="rosTopics.length > 0" style="margin-top: 15px">
+              <h3 style="margin-bottom: 10px; color: #4b5563">
+                活跃话题 ({{ rosTopics.length }})
+              </h3>
+              <div class="topic-list">
+                <div v-for="topic in rosTopics" :key="topic" class="topic-item">
+                  {{ topic }}
+                </div>
+              </div>
+            </div>
+
+            <div v-if="rosNodes.length > 0" style="margin-top: 15px">
+              <h3 style="margin-bottom: 10px; color: #4b5563">
+                活跃节点 ({{ rosNodes.length }})
+              </h3>
+              <div class="topic-list">
+                <div v-for="node in rosNodes" :key="node" class="topic-item">
+                  {{ node }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 相机管理 -->
+          <div class="card">
+            <h2>📷 相机管理</h2>
+
+            <div class="info-box">
+              <strong>提示：</strong> 启动相机前请先检查相机连接状态
+            </div>
+
+            <div class="form-group">
+              <label>配置模式</label>
+              <select v-model="camera.mode">
+                <option value="multi">多相机模式</option>
+                <option value="single">单相机测试</option>
+              </select>
+            </div>
+
+            <div v-if="camera.mode === 'multi'">
+              <div class="form-group">
+                <label>胸部相机序列号（仅D435）</label>
+                <select
+                  v-if="chestCameras.length > 0"
+                  v-model="camera.serialChest">
+                  <option value="">-- 请选择相机 --</option>
+                  <option
+                    v-for="cam in chestCameras"
+                    :key="cam.serial"
+                    :value="cam.serial">
+                    {{ cam.name }} - {{ cam.serial }}
+                  </option>
+                </select>
+                <input
+                  v-else
+                  v-model="camera.serialChest"
+                  placeholder="未检测到D435，请检查相机" />
+              </div>
+              <div class="form-group">
+                <label>左手腕相机序列号（仅D405，可选）</label>
+                <select
+                  v-if="wristCameras.length > 0"
+                  v-model="camera.serialLeft">
+                  <option value="">-- 不使用 --</option>
+                  <option
+                    v-for="cam in wristCameras"
+                    :key="cam.serial"
+                    :value="cam.serial">
+                    {{ cam.name }} - {{ cam.serial }}
+                  </option>
+                </select>
+                <input
+                  v-else
+                  v-model="camera.serialLeft"
+                  placeholder="未检测到D405（可选）" />
+              </div>
+              <div class="form-group">
+                <label>右手腕相机序列号（仅D405，可选）</label>
+                <select
+                  v-if="wristCameras.length > 0"
+                  v-model="camera.serialRight">
+                  <option value="">-- 不使用 --</option>
+                  <option
+                    v-for="cam in wristCameras"
+                    :key="cam.serial"
+                    :value="cam.serial">
+                    {{ cam.name }} - {{ cam.serial }}
+                  </option>
+                </select>
+                <input
+                  v-else
+                  v-model="camera.serialRight"
+                  placeholder="未检测到D405（可选）" />
+              </div>
+            </div>
+
+            <div v-else>
+              <div class="form-group">
+                <label>相机名称</label>
+                <select v-model="camera.cameraName">
+                  <option value="serial_chest">serial_chest (胸部相机)</option>
+                  <option value="serial_right">
+                    serial_right (右手腕相机)
+                  </option>
+                  <option value="serial_left">serial_left (左手腕相机)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>相机序列号（胸部D435/手腕D405）</label>
+                <select
+                  v-if="singleCameraOptions.length > 0"
+                  v-model="camera.serialNo">
+                  <option value="">-- 请选择相机 --</option>
+                  <option
+                    v-for="cam in singleCameraOptions"
+                    :key="cam.serial"
+                    :value="cam.serial">
+                    {{ cam.name }} - {{ cam.serial }}
+                  </option>
+                </select>
+                <input
+                  v-else
+                  v-model="camera.serialNo"
+                  placeholder="未检测到匹配相机" />
+              </div>
+            </div>
+
+            <div>
+              <button class="btn btn-info" @click="checkCameras">
+                🔍 检查相机
+              </button>
+              <button
+                class="btn btn-success"
+                @click="launchCameras"
+                :disabled="isCameraRunning">
+                ▶️ 启动相机
+              </button>
+              <button
+                class="btn btn-danger"
+                @click="stopCameras"
+                :disabled="!isCameraRunning">
+                ⏹️ 停止相机
+              </button>
+            </div>
+          </div>
+
+          <!-- 数据采集 -->
+          <div class="card">
+            <h2>📹 数据采集</h2>
+
+            <div class="form-group">
+              <label>数据集名称</label>
+              <input v-model="record.repoId" placeholder="xarm_dataset" />
+            </div>
+
+            <div class="form-group">
+              <label>保存路径</label>
+              <input v-model="record.root" placeholder="~/lerobot_datasets" />
+            </div>
+
+            <div class="form-group">
+              <label>机械臂</label>
+              <select v-model="record.armSide">
+                <option value="right_arm">右臂 (Right Arm)</option>
+                <option value="left_arm">左臂 (Left Arm)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>任务名称</label>
+              <input v-model="record.task" placeholder="pick and place" />
+            </div>
+
+            <div class="form-group">
+              <label>录制片段数</label>
+              <input
+                type="number"
+                v-model.number="record.numEpisodes"
+                min="1" />
+            </div>
+
+            <div class="form-group checkbox-group">
+              <input
+                type="checkbox"
+                id="use-wrist"
+                v-model="record.useWristCamera" />
+              <label for="use-wrist">使用手腕相机</label>
+            </div>
+
+            <div>
+              <button
+                class="btn btn-primary"
+                @click="startRecording"
+                :disabled="isRecording">
+                🔴 启动录制进程
+              </button>
+              <button
+                class="btn btn-danger"
+                @click="stopRecording"
+                :disabled="!isRecording">
+                ⏹️ 停止录制进程
+              </button>
+            </div>
+
+            <!-- Episode控制 -->
+            <div
+              v-if="isRecording"
+              style="
+                margin-top: 15px;
+                padding: 15px;
+                background: #f8f9fa;
+                border-radius: 5px;
+              ">
+              <h3 style="margin-top: 0; font-size: 16px; color: #495057">
+                📹 Episode 控制
+              </h3>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap">
+                <button
+                  class="btn btn-success"
+                  @click="controlRecording('r')"
+                  :disabled="episodeControlBusy"
+                  style="flex: 1; min-width: 150px">
+                  ▶️ 开始/停止 Episode
+                </button>
+                <button
+                  class="btn btn-warning"
+                  @click="controlRecording('h')"
+                  :disabled="episodeControlBusy"
+                  style="flex: 1; min-width: 150px">
+                  <span v-if="!episodeControlBusy">🏠 回到初始位置</span>
+                  <span v-else>⏳ 处理中...</span>
+                </button>
+                <button
+                  class="btn btn-info"
+                  @click="controlRecording('s')"
+                  :disabled="episodeControlBusy"
+                  style="flex: 1; min-width: 150px">
+                  <span v-if="!episodeControlBusy">💾 保存Episode</span>
+                  <span v-else>⏳ 保存中...</span>
+                </button>
+              </div>
+              <p style="margin: 10px 0 0 0; font-size: 12px; color: #6c757d">
+                💡
+                提示：先点击"开始/停止Episode"开始录制，完成后点击"保存Episode"保存数据
+              </p>
+            </div>
+          </div>
+
+          <!-- 系统日志 -->
+          <div class="card">
+            <h2>📝 系统日志</h2>
+            <div class="log-console" ref="logConsole">
+              <div v-for="(log, index) in logs" :key="index" class="log-entry">
+                <span :class="['log-' + log.type]">
+                  [{{ log.process }}] {{ log.message }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 进程状态 -->
+        <div class="card">
+          <h2>⚙️ 运行中的进程</h2>
+
+          <div v-if="Object.keys(processes).length === 0" class="info-box">
+            当前没有运行的进程
+          </div>
+
+          <div
+            v-for="(status, name) in processes"
+            :key="name"
+            class="process-item">
+            <span class="process-name">{{ name }}</span>
+            <div class="process-status">
+              <span
+                :class="['status-dot', status.running ? 'status-running' : 'status-stopped']"></span>
+              <span
+                >{{ status.running ? `运行中 (PID: ${status.pid})` : '已停止'
+                }}</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const { createApp } = Vue;
+
+      createApp({
+        data() {
+          return {
+            connected: false,
+            socket: null,
+
+            // 遥操作配置
+            teleop: {
+              armSide: "right_arm",
+              leaderCan: "can0",
+              followerCan: "can1",
+              useRos2: true,
+            },
+
+            // 数据采集配置
+            record: {
+              repoId: "xarm_dataset",
+              root: "~/lerobot_datasets",
+              armSide: "right_arm",
+              task: "pick and place",
+              numEpisodes: 50,
+              useWristCamera: false,
+            },
+
+            // 相机配置
+            camera: {
+              mode: "single",
+              serialChest: "",
+              serialLeft: "",
+              serialRight: "",
+              cameraName: "serial_chest",
+              serialNo: "",
+            },
+
+            // 系统状态
+            processes: {},
+            logs: [],
+            rosTopics: [],
+            rosNodes: [],
+            canInterfaces: [],
+            detectedCameras: [], // 检测到的相机列表
+
+            // UI状态
+            alertMessage: "",
+            alertType: "success",
+            episodeControlBusy: false, // Episode控制是否正在处理中
+          };
+        },
+
+        computed: {
+          chestCameras() {
+            return this.detectedCameras.filter((cam) => /D435/i.test(cam.name));
+          },
+          wristCameras() {
+            return this.detectedCameras.filter((cam) => /D405/i.test(cam.name));
+          },
+          singleCameraOptions() {
+            return this.camera.cameraName === "serial_chest"
+              ? this.chestCameras
+              : this.wristCameras;
+          },
+          isTeleopRunning() {
+            const key = `teleop_${this.teleop.armSide}`;
+            return this.processes[key]?.running || false;
+          },
+
+          isRecording() {
+            const key = `recorder_${this.record.armSide}`;
+            return this.processes[key]?.running || false;
+          },
+
+          isCameraRunning() {
+            return this.processes["camera_node"]?.running || false;
+          },
+
+          canInterfacesUp() {
+            return this.canInterfaces.filter((iface) => iface.is_up).length;
+          },
+        },
+
+        mounted() {
+          this.initWebSocket();
+          this.refreshStatus();
+
+          // 定期刷新状态
+          setInterval(() => {
+            this.refreshStatus();
+          }, 3000);
+        },
+
+        methods: {
+          initWebSocket() {
+            this.socket = io("http://localhost:5000");
+
+            this.socket.on("connect", () => {
+              this.connected = true;
+              this.addLog("system", "stdout", "✓ WebSocket 已连接");
+            });
+
+            this.socket.on("disconnect", () => {
+              this.connected = false;
+              this.addLog("system", "stderr", "✗ WebSocket 已断开");
+            });
+
+            this.socket.on("process_log", (data) => {
+              this.addLog(data.process, data.type, data.message);
+            });
+
+            this.socket.on("status_update", (status) => {
+              this.processes = status;
+            });
+          },
+
+          addLog(process, type, message) {
+            // 清理ANSI颜色代码
+            message = message.replace(
+              /\[0m|\[31m|\[32m|\[33m|\[34m|\[35m|\[36m|\[37m/g,
+              "",
+            );
+
+            // 过滤掉冗余的INFO日志，只保留关键信息
+            const skipPatterns = [
+              "Sourcing ROS2",
+              "Sourcing workspace:",
+              "Checking if",
+              "Launching multi_realsense",
+              "[INFO] [launch]:",
+              "process started with pid",
+              "RealSense ROS v",
+              // 'Device with serial number',
+              "Device with physical ID",
+              "Device with port number",
+              "Device FW version",
+              "Device Product ID",
+              "Device USB type:",
+              "Device Name:",
+              "Device Serial No:",
+              "Device physical port:",
+              "Sync Mode:",
+              "Open profile:",
+              "Stopping Sensor:",
+              "Starting Sensor:",
+              "getParameters",
+              "JSON file is not provided",
+              "Built with LibRealSense",
+              "Running with LibRealSense",
+              "All log files can be found",
+              "Default logging verbosity",
+            ];
+
+            // 检查是否应该跳过此日志
+            const shouldSkip = skipPatterns.some((pattern) =>
+              message.includes(pattern),
+            );
+            if (shouldSkip && !message.includes("ERROR")) {
+              return; // 跳过不重要的INFO日志
+            }
+
+            // 智能判断日志类型：
+            // 1. 如果包含ERROR，标记为stderr（红色）
+            // 2. 如果包含[INFO]或[WARN]但不包含ERROR，强制标记为stdout（绿色）
+            // 3. 其他保持原有类型
+            if (message.includes("ERROR") || message.includes("error")) {
+              type = "stderr";
+            } else if (
+              message.includes("[INFO]") ||
+              message.includes("[WARN]") ||
+              /Svt\[info\]/i.test(message) ||
+              /\[config\]/i.test(message)
+            ) {
+              type = "stdout";
+            }
+
+            this.logs.push({ process, type, message });
+            if (this.logs.length > 100) {
+              this.logs.shift();
+            }
+
+            // 自动滚动到底部
+            this.$nextTick(() => {
+              if (this.$refs.logConsole) {
+                this.$refs.logConsole.scrollTop =
+                  this.$refs.logConsole.scrollHeight;
+              }
+            });
+          },
+
+          showAlert(message, type = "success") {
+            this.alertMessage = message;
+            this.alertType = type;
+
+            setTimeout(() => {
+              this.alertMessage = "";
+            }, 5000);
+          },
+
+          async apiCall(url, method = "GET", data = null) {
+            try {
+              const options = {
+                method,
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              };
+
+              if (data) {
+                options.body = JSON.stringify(data);
+              }
+
+              const response = await fetch(
+                `http://localhost:5000${url}`,
+                options,
+              );
+              const result = await response.json();
+
+              if (result.success !== undefined) {
+                this.showAlert(
+                  result.message,
+                  result.success ? "success" : "error",
+                );
+              }
+
+              return result;
+            } catch (error) {
+              this.showAlert(`请求失败: ${error.message}`, "error");
+              return { success: false, message: error.message };
+            }
+          },
+
+          async refreshStatus() {
+            const result = await this.apiCall("/api/process/status");
+            if (result) {
+              this.processes = result;
+            }
+          },
+
+          async startTeleop() {
+            await this.apiCall("/api/teleop/start", "POST", {
+              arm_side: this.teleop.armSide,
+              leader_can: this.teleop.leaderCan,
+              follower_can: this.teleop.followerCan,
+              use_ros2: this.teleop.useRos2,
+            });
+          },
+
+          async stopTeleop() {
+            await this.apiCall("/api/teleop/stop", "POST", {
+              arm_side: this.teleop.armSide,
+            });
+          },
+
+          async startRecording() {
+            await this.apiCall("/api/record/start", "POST", this.record);
+          },
+
+          async stopRecording() {
+            await this.apiCall("/api/record/stop", "POST", {
+              arm_side: this.record.armSide,
+            });
+          },
+
+          async controlRecording(command) {
+            const commandDesc = {
+              r: "开始/停止录制Episode",
+              h: "机器人回到初始位置",
+              s: "保存Episode（不回零）",
+              n: "保存Episode并回到初始位置",
+            };
+
+            const commandIcon = {
+              r: "▶️",
+              h: "🏠",
+              s: "💾",
+              n: "💾",
+            };
+
+            const processingMsg = {
+              r: "正在切换录制状态...",
+              h: "正在回到初始位置，请稍候...",
+              s: "正在保存Episode，请稍候...",
+              n: "正在保存Episode并回到初始位置，请稍候...",
+            };
+
+            // 设置忙碌状态（特别是对于耗时的操作）
+            if (command === "n" || command === "h" || command === "s") {
+              this.episodeControlBusy = true;
+            }
+
+            const data = {
+              arm_side: this.record.armSide,
+              command: command,
+            };
+
+            // 在日志中显示发送的命令和处理提示
+            this.addLog(
+              "recorder",
+              "stdout",
+              `${commandIcon[command]} ${processingMsg[command]}`,
+            );
+
+            try {
+              const result = await this.apiCall(
+                "/api/record/control",
+                "POST",
+                data,
+              );
+              if (result.success) {
+                this.addLog("recorder", "stdout", `✓ ${result.message}`);
+                this.showAlert(`✓ ${commandDesc[command]}`, "success");
+
+                // 对于保存操作，额外提示
+                if (command === "n") {
+                  this.addLog(
+                    "recorder",
+                    "stdout",
+                    "💡 提示: 等待机器人回到初始位置后，可以开始下一个Episode",
+                  );
+                }
+              } else {
+                this.addLog("recorder", "stderr", `✗ ${result.message}`);
+              }
+            } finally {
+              // 清除忙碌状态
+              this.episodeControlBusy = false;
+            }
+          },
+
+          async checkCameras() {
+            const result = await this.apiCall("/api/camera/check");
+            if (result.success) {
+              this.addLog("camera", "stdout", result.output);
+              // 保存检测到的相机列表
+              if (result.cameras && result.cameras.length > 0) {
+                this.detectedCameras = result.cameras;
+                const chestCam = result.cameras.find((cam) =>
+                  /D435/i.test(cam.name),
+                );
+                const wristCams = result.cameras.filter((cam) =>
+                  /D405/i.test(cam.name),
+                );
+
+                if (this.camera.mode === "single" && !this.camera.serialNo) {
+                  if (this.camera.cameraName === "serial_chest" && chestCam) {
+                    this.camera.serialNo = chestCam.serial;
+                  } else if (wristCams.length > 0) {
+                    this.camera.serialNo = wristCams[0].serial;
+                  }
+                }
+
+                if (this.camera.mode === "multi") {
+                  if (!this.camera.serialChest && chestCam) {
+                    this.camera.serialChest = chestCam.serial;
+                  }
+                  if (!this.camera.serialLeft && wristCams.length > 0) {
+                    this.camera.serialLeft = wristCams[0].serial;
+                  }
+                  if (!this.camera.serialRight && wristCams.length > 1) {
+                    this.camera.serialRight = wristCams[1].serial;
+                  }
+                }
+              }
+            } else {
+              // 优先显示 output（包含友好提示），然后是 error 或 message
+              this.addLog(
+                "camera",
+                "stderr",
+                result.output || result.error || result.message,
+              );
+              this.detectedCameras = [];
+            }
+          },
+
+          async launchCameras() {
+            const data = {
+              config: this.camera.mode,
+              ...this.camera,
+            };
+            await this.apiCall("/api/camera/launch", "POST", data);
+          },
+
+          async stopCameras() {
+            await this.apiCall("/api/camera/stop", "POST");
+          },
+
+          async checkCanStatus() {
+            const result = await this.apiCall("/api/can/status");
+            if (result.success) {
+              this.canInterfaces = result.interfaces;
+              this.addLog("can", "stdout", result.output);
+
+              // 统计状态
+              const upCount = result.interfaces.filter(
+                (iface) => iface.is_up,
+              ).length;
+              const totalCount = result.interfaces.length;
+
+              if (upCount === totalCount && totalCount > 0) {
+                this.showAlert(
+                  `✓ 所有 CAN 接口状态正常 (${upCount}/${totalCount})`,
+                  "success",
+                );
+              } else if (upCount > 0) {
+                this.showAlert(
+                  `⚠️ 部分接口未启动 (${upCount}/${totalCount} UP)，请运行配置脚本`,
+                  "error",
+                );
+              } else if (totalCount > 0) {
+                this.showAlert(`✗ 所有接口未启动，请运行配置脚本`, "error");
+              } else {
+                this.showAlert("未检测到 CAN 接口设备", "error");
+              }
+            } else {
+              this.addLog("can", "stderr", result.message);
+            }
+          },
+
+          async setupCanInterfaces() {
+            this.showAlert("正在配置 CAN 接口，可能需要授权...", "success");
+            const result = await this.apiCall("/api/can/setup", "POST");
+            if (result.success) {
+              this.addLog("can", "stdout", result.output);
+              this.showAlert("CAN 接口配置成功！", "success");
+              // 配置成功后自动刷新状态
+              setTimeout(() => this.checkCanStatus(), 1000);
+            } else {
+              this.addLog("can", "stderr", result.error || result.message);
+              // 如果返回了手动命令，显示它
+              if (result.manual_command) {
+                this.showAlert(
+                  `需要手动配置。请在终端运行: ${result.manual_command}`,
+                  "error",
+                );
+                this.addLog(
+                  "can",
+                  "stdout",
+                  `手动配置命令: ${result.manual_command}`,
+                );
+              }
+            }
+          },
+
+          async refreshTopics() {
+            const result = await this.apiCall("/api/ros/topics");
+            if (result.success) {
+              this.rosTopics = result.topics;
+            }
+          },
+
+          async refreshNodes() {
+            const result = await this.apiCall("/api/ros/nodes");
+            if (result.success) {
+              this.rosNodes = result.nodes;
+            }
+          },
+        },
+      }).mount("#app");
+    </script>
+  </body>
+</html>
