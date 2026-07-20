@@ -1,0 +1,2515 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XArm 控制面板</title>
+    <script
+      src="https://unpkg.com/vue@3/dist/vue.global.js"
+      onerror="
+        this.onerror = null;
+        this.src =
+          'https://cdnjs.cloudflare.com/ajax/libs/vue/3.5.13/vue.global.js';
+      "></script>
+    <script src="/static/socket.io.min.js"></script>
+    <style>
+      :root {
+        --bg: #eceff3;
+        --bg-strong: #e5e7eb;
+        --panel: rgba(255, 255, 255, 0.78);
+        --panel-soft: rgba(244, 245, 247, 0.92);
+        --line: rgba(15, 23, 42, 0.08);
+        --line-strong: rgba(15, 23, 42, 0.14);
+        --text: #111827;
+        --muted: #6b7280;
+        --shadow:
+          0 24px 56px rgba(15, 23, 42, 0.14),
+          0 8px 20px rgba(15, 23, 42, 0.08);
+        --shadow-soft:
+          0 16px 34px rgba(15, 23, 42, 0.1),
+          0 4px 12px rgba(15, 23, 42, 0.05);
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(
+            circle at left top,
+            rgba(255, 255, 255, 0.9),
+            transparent 28%
+          ),
+          radial-gradient(
+            circle at 82% 12%,
+            rgba(255, 255, 255, 0.65),
+            transparent 24%
+          ),
+          linear-gradient(180deg, #eff2f5 0%, #e7ebf0 100%);
+        min-height: 100vh;
+        padding: 28px 20px 48px;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+          linear-gradient(120deg, rgba(255, 255, 255, 0.18), transparent 38%),
+          linear-gradient(300deg, rgba(17, 24, 39, 0.03), transparent 32%);
+      }
+
+      #app {
+        position: relative;
+      }
+
+      .container {
+        max-width: 1520px;
+        margin: 0 auto;
+      }
+
+      .header {
+        position: relative;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        margin-bottom: 20px;
+        padding: 16px 20px;
+        border-radius: 30px;
+        background: rgba(255, 255, 255, 0.74);
+        border: 1px solid rgba(255, 255, 255, 0.72);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(18px);
+      }
+
+      .header::before {
+        content: "";
+        position: absolute;
+        top: -140px;
+        right: -110px;
+        width: 320px;
+        height: 320px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(17, 24, 39, 0.09),
+          rgba(17, 24, 39, 0)
+        );
+      }
+
+      .hero-copy,
+      .hero-panel {
+        position: relative;
+        z-index: 1;
+      }
+
+      .hero-copy {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .brand-lockup {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        width: fit-content;
+      }
+
+      .brand-logo {
+        margin-left: 20px;
+        margin-top: 20px;
+        width: 250px;
+        height: 80px;
+        object-fit: contain;
+        display: block;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.92);
+        box-shadow:
+          0 10px 22px rgba(15, 23, 42, 0.16),
+          inset 0 1px 0 rgba(255, 255, 255, 0.85);
+      }
+
+      .brand-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .brand-name {
+        color: #0f172a;
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: 0.01em;
+      }
+
+      .brand-sub {
+        color: #64748b;
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .hero-eyebrow {
+        display: inline-flex;
+        width: fit-content;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.82);
+        border: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.76rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .header h1 {
+        font-size: clamp(2rem, 4.2vw, 3.3rem);
+        line-height: 0.94;
+        font-weight: 800;
+        letter-spacing: -0.07em;
+        color: #050505;
+      }
+
+      .hero-description {
+        max-width: 40rem;
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1.45;
+      }
+
+      .hero-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .hero-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.76);
+        border: 1px solid var(--line);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+        color: var(--text);
+        font-size: 0.88rem;
+      }
+
+      .hero-panel {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 24px;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.9),
+          rgba(244, 245, 247, 0.88)
+        );
+        border: 1px solid rgba(255, 255, 255, 0.86);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .hero-panel-wrap {
+        display: flex;
+        align-items: stretch;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .hero-panel-wrap > .hero-panel {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .hero-panel-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .overview-robot {
+        width: auto;
+        height: 200px;
+        object-fit: contain;
+        display: block;
+        align-self: center;
+        pointer-events: none;
+        margin-right: 100px;
+      }
+
+      .hero-panel-title {
+        color: var(--muted);
+        font-size: 0.84rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .hero-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .hero-mini {
+        min-width: 0;
+        padding: 14px;
+        border-radius: 18px;
+        background: var(--panel-soft);
+        border: 1px solid rgba(255, 255, 255, 0.95);
+        box-shadow:
+          0 12px 28px rgba(15, 23, 42, 0.1),
+          inset 0 1px 0 rgba(255, 255, 255, 0.96);
+      }
+
+      .hero-mini-label {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 0.84rem;
+        white-space: nowrap;
+      }
+
+      .hero-mini-value {
+        display: block;
+        font-size: 1.75rem;
+        font-weight: 800;
+        letter-spacing: -0.06em;
+      }
+
+      .hero-mini-hint {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 0.84rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .process-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .process-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 500;
+        background: rgba(255,255,255,0.6);
+        border: 1px solid rgba(15,23,42,0.08);
+        color: var(--text);
+      }
+
+      .process-pill-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .process-pill-dot.running { background: #10b981; }
+      .process-pill-dot.stopped { background: #9ca3af; }
+
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        font-size: 0.92rem;
+        font-weight: 700;
+      }
+
+      .status-online {
+        background: #111827;
+        color: white;
+        box-shadow: 0 12px 26px rgba(17, 24, 39, 0.22);
+      }
+
+      .status-offline {
+        background: rgba(255, 255, 255, 0.85);
+        border-color: var(--line);
+        color: var(--muted);
+      }
+
+      .alert {
+        margin-bottom: 20px;
+        padding: 14px 18px;
+        border-radius: 22px;
+        border: 1px solid transparent;
+        box-shadow: var(--shadow-soft);
+        backdrop-filter: blur(12px);
+      }
+
+      .alert-success {
+        background: rgba(236, 253, 245, 0.88);
+        border-color: rgba(16, 185, 129, 0.12);
+        color: #065f46;
+      }
+
+      .alert-error {
+        background: rgba(254, 242, 242, 0.88);
+        border-color: rgba(239, 68, 68, 0.12);
+        color: #991b1b;
+      }
+
+      .module-tabs {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+        padding: 6px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.66);
+        border: 1px solid rgba(255, 255, 255, 0.82);
+        box-shadow: var(--shadow-soft);
+        backdrop-filter: blur(10px);
+      }
+
+      .module-tab {
+        border: 0;
+        min-height: 40px;
+        padding: 0 18px;
+        border-radius: 999px;
+        background: transparent;
+        color: #4b5563;
+        font-size: 0.92rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition:
+          background 0.2s ease,
+          color 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+
+      .module-tab:hover {
+        background: rgba(15, 23, 42, 0.06);
+      }
+
+      .module-tab.is-active {
+        background: #111827;
+        color: #f9fafb;
+        box-shadow: 0 14px 28px rgba(17, 24, 39, 0.24);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+        align-items: stretch;
+      }
+
+      .card {
+        position: relative;
+        overflow: hidden;
+        grid-column: span 4;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        padding: 26px;
+        border-radius: 30px;
+        background: rgba(250, 250, 251, 0.82);
+        border: 1px solid rgba(255, 255, 255, 0.88);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(16px);
+      }
+
+      .card::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.26),
+          transparent 30%
+        );
+      }
+
+      .card-wide {
+        grid-column: span 6;
+      }
+
+      .card-capture {
+        grid-column: 1 / -1;
+      }
+
+      .card-third {
+        grid-column: span 4;
+      }
+
+      .card-compact {
+        grid-column: span 3;
+      }
+
+      .card-full {
+        grid-column: 1 / -1;
+      }
+
+      .card h2 {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+        padding-bottom: 0;
+        border-bottom: none;
+        color: var(--text);
+        font-size: 1.24rem;
+        letter-spacing: -0.03em;
+      }
+
+      .title-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        background: linear-gradient(180deg, #1f2937, #111827);
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        color: #f8fafc;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.25),
+          0 8px 18px rgba(17, 24, 39, 0.2);
+        flex-shrink: 0;
+      }
+
+      .icon {
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex-shrink: 0;
+      }
+
+      .icon-sprite {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+      }
+
+      .title-icon .icon {
+        width: 18px;
+        height: 18px;
+        stroke-width: 2.4;
+      }
+
+      .form-group {
+        position: relative;
+        z-index: 1;
+        margin-bottom: 16px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: #374151;
+        font-size: 0.92rem;
+        font-weight: 700;
+      }
+
+      .form-group input,
+      .form-group select {
+        width: 100%;
+        min-height: 48px;
+        padding: 12px 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.76);
+        color: var(--text);
+        font-size: 0.96rem;
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s,
+          background 0.2s;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      }
+
+      .form-group input::placeholder {
+        color: #9ca3af;
+      }
+
+      .form-group select {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        cursor: pointer;
+        padding-right: 46px;
+        background-image:
+          linear-gradient(45deg, transparent 50%, #64748b 50%),
+          linear-gradient(135deg, #64748b 50%, transparent 50%),
+          linear-gradient(
+            to right,
+            rgba(15, 23, 42, 0.12),
+            rgba(15, 23, 42, 0.12)
+          );
+        background-position:
+          calc(100% - 21px) calc(50% + 1px),
+          calc(100% - 15px) calc(50% + 1px),
+          calc(100% - 40px) 50%;
+        background-size:
+          6px 6px,
+          6px 6px,
+          1px 18px;
+        background-repeat: no-repeat;
+      }
+
+      .form-group select:hover {
+        border-color: rgba(17, 24, 39, 0.22);
+        background-color: rgba(255, 255, 255, 0.92);
+      }
+
+      .form-group select:focus {
+        background-image:
+          linear-gradient(45deg, transparent 50%, #0f172a 50%),
+          linear-gradient(135deg, #0f172a 50%, transparent 50%),
+          linear-gradient(
+            to right,
+            rgba(15, 23, 42, 0.2),
+            rgba(15, 23, 42, 0.2)
+          );
+      }
+
+      .form-group select::-ms-expand {
+        display: none;
+      }
+
+      .form-group select option {
+        color: #111827;
+        background: #ffffff;
+      }
+
+      .form-group input:focus,
+      .form-group select:focus {
+        outline: none;
+        border-color: rgba(17, 24, 39, 0.18);
+        background-color: white;
+        box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.06);
+      }
+
+      .checkbox-group {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.58);
+        border: 1px solid var(--line);
+      }
+
+      .checkbox-group label {
+        margin: 0;
+      }
+
+      .checkbox-group input[type="checkbox"] {
+        appearance: none;
+        width: 13px;
+        height: 13px;
+        min-height: 0;
+        padding: 0;
+        border-radius: 3px;
+        border: 1.2px solid #94a3b8;
+        background: white;
+        cursor: pointer;
+        position: relative;
+        flex-shrink: 0;
+        display: inline-grid;
+        place-items: center;
+        box-shadow: none;
+      }
+
+      .checkbox-group input[type="checkbox"]:checked {
+        background: #111827;
+        border-color: #111827;
+      }
+
+      .checkbox-group input[type="checkbox"]:checked::after {
+        content: "";
+        width: 6px;
+        height: 3px;
+        border: 1.6px solid white;
+        border-top: 0;
+        border-right: 0;
+        transform: rotate(-45deg) translateY(-1px);
+      }
+
+      .button-row {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .button-row-fluid .btn {
+        flex: 1 1 180px;
+      }
+
+      .btn {
+        min-height: 52px;
+        padding: 0 22px;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s,
+          background 0.2s,
+          color 0.2s,
+          border-color 0.2s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .btn .icon {
+        width: 18px;
+        height: 18px;
+        stroke-width: 2.4;
+        padding: 2px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.18);
+      }
+
+      .btn-label {
+        display: inline-flex;
+        align-items: center;
+        line-height: 1;
+        letter-spacing: 0.01em;
+        white-space: nowrap;
+      }
+
+      .btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+      }
+
+      .btn-primary,
+      .btn-success {
+        background: #09090b;
+        color: white;
+      }
+
+      .btn-info {
+        background: rgba(255, 255, 255, 0.82);
+        color: var(--text);
+        border-color: var(--line-strong);
+      }
+
+      .btn-info .icon {
+        background: rgba(17, 24, 39, 0.08);
+      }
+
+      .btn-warning {
+        background: #f3ede3;
+        color: #8a5b1e;
+      }
+
+      .btn-warning .icon {
+        background: rgba(138, 91, 30, 0.12);
+      }
+
+      .btn-danger {
+        background: #fff1f2;
+        border-color: rgba(244, 63, 94, 0.12);
+        color: #be123c;
+      }
+
+      .btn-danger .icon {
+        background: rgba(190, 18, 60, 0.1);
+      }
+
+      .btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      .info-box {
+        position: relative;
+        z-index: 1;
+        margin-bottom: 16px;
+        padding: 14px 16px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.68);
+        border: 1px solid var(--line);
+        color: #4b5563;
+        line-height: 1.65;
+        box-shadow:
+          0 12px 28px rgba(15, 23, 42, 0.08),
+          inset 0 1px 0 rgba(255, 255, 255, 0.78);
+      }
+
+      .info-box strong {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--text);
+      }
+
+      .info-box strong .icon {
+        width: 14px;
+        height: 14px;
+        stroke-width: 2.2;
+      }
+
+      .topic-list {
+        position: relative;
+        z-index: 1;
+        max-height: 280px;
+        overflow-y: auto;
+        background: rgba(244, 245, 247, 0.9);
+        padding: 10px;
+        border-radius: 20px;
+        border: 1px solid var(--line);
+        box-shadow:
+          0 14px 30px rgba(15, 23, 42, 0.08),
+          inset 0 1px 0 rgba(255, 255, 255, 0.75);
+      }
+
+      .topic-item {
+        padding: 12px 14px;
+        background: rgba(255, 255, 255, 0.92);
+        margin-bottom: 8px;
+        border-radius: 16px;
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.88rem;
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.98);
+      }
+
+      .topic-item:last-child {
+        margin-bottom: 0;
+      }
+
+      .multi-camera-preview {
+        position: relative;
+        z-index: 1;
+        margin-top: 16px;
+      }
+
+      .multi-camera-preview-title {
+        margin-bottom: 10px;
+        color: var(--text);
+        font-weight: 800;
+      }
+
+      .multi-camera-preview-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        width: 100%;
+        height: 560px;
+        overflow: hidden;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        background: #0f172a;
+        box-shadow:
+          0 16px 34px rgba(15, 23, 42, 0.14),
+          inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      }
+
+      .multi-camera-preview-cell {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: #111827;
+      }
+
+      .multi-camera-preview-cell img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .multi-camera-preview-cell-chest {
+        grid-column: 1 / -1;
+      }
+
+      .multi-camera-preview-meta {
+        position: absolute;
+        top: 14px;
+        left: 14px;
+        right: 14px;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .multi-camera-preview-name {
+        color: #f8fafc;
+        font-size: 0.95rem;
+        font-weight: 800;
+      }
+
+      .multi-camera-preview-status {
+        color: #cbd5e1;
+        font-size: 0.82rem;
+      }
+
+      @media (max-width: 900px) {
+        .multi-camera-preview-grid {
+          grid-template-columns: 1fr;
+          grid-template-rows: repeat(3, 180px);
+          height: auto;
+        }
+
+        .multi-camera-preview-cell-chest {
+          grid-column: auto;
+        }
+      }
+
+      .log-console {
+        position: relative;
+        z-index: 1;
+        height: 360px;
+        overflow-y: auto;
+        padding: 18px;
+        border-radius: 24px;
+        background: linear-gradient(180deg, #111827, #0b1220);
+        color: #e5eefc;
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.9em;
+        line-height: 1.7;
+        box-shadow:
+          0 16px 34px rgba(2, 6, 23, 0.24),
+          inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      }
+
+      .log-entry {
+        margin-bottom: 6px;
+        word-break: break-word;
+      }
+
+      .log-stdout {
+        color: #7dd3fc;
+      }
+
+      .log-stdwarn {
+        color: #fcd34d;
+      }
+
+      .log-stdstatus {
+        color: #a5b4fc;
+        font-weight: 500;
+      }
+
+      .log-stderr {
+        color: #fda4af;
+      }
+
+      .process-item {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 18px;
+        margin-bottom: 12px;
+        background: rgba(255, 255, 255, 0.76);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        box-shadow:
+          0 12px 28px rgba(15, 23, 42, 0.08),
+          inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      }
+
+      .process-item:last-child {
+        margin-bottom: 0;
+      }
+
+      .process-name {
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .process-status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #4b5563;
+      }
+
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+
+      .status-running {
+        background: #10b981;
+        box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.14);
+        animation: pulse 2s infinite;
+      }
+
+      .status-stopped {
+        background: #cbd5e1;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .episode-panel {
+        position: relative;
+        z-index: 1;
+        margin-top: 18px;
+        padding: 18px;
+        background: rgba(245, 246, 248, 0.94);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+      }
+
+      .episode-panel h3 {
+        margin: 0 0 14px;
+        font-size: 1rem;
+        color: #374151;
+      }
+
+      .section-divider {
+        position: relative;
+        z-index: 1;
+        margin: 22px 0 14px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+      }
+
+      .section-divider h3 {
+        margin: 0;
+        font-size: 1rem;
+        color: #374151;
+      }
+
+      .section-divider-first {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0;
+      }
+
+      .capture-workspace {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(400px, 0.85fr) minmax(560px, 1.15fr);
+        gap: 24px;
+        align-items: start;
+      }
+
+      .capture-main,
+      .capture-preview-panel {
+        min-width: 0;
+      }
+
+      .capture-preview-panel .multi-camera-preview {
+        margin-top: 0;
+      }
+
+      .episode-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin: 12px 0 0;
+        color: #6b7280;
+        font-size: 0.82rem;
+        line-height: 1.6;
+      }
+
+      .episode-note .icon {
+        width: 14px;
+        height: 14px;
+        margin-top: 2px;
+      }
+
+      @media (max-width: 1200px) {
+        .header {
+          grid-template-columns: 1fr;
+        }
+
+        .hero-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .card-third {
+          grid-column: span 6;
+        }
+
+        .card-compact {
+          grid-column: span 6;
+        }
+
+        .capture-workspace {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 900px) {
+        body {
+          padding: 18px 14px 28px;
+        }
+
+        .header {
+          padding: 14px;
+          border-radius: 22px;
+        }
+
+        .header h1 {
+          font-size: clamp(1.8rem, 8vw, 2.8rem);
+        }
+
+        .brand-logo {
+          width: auto;
+          height: 46px;
+          max-width: 142px;
+        }
+
+        .overview-robot {
+          height: 70px;
+          max-width: 112px;
+        }
+
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        .card,
+        .card-wide,
+        .card-compact,
+        .card-full {
+          grid-column: 1 / -1;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .brand-lockup {
+          align-items: flex-start;
+        }
+
+        .brand-meta {
+          gap: 2px;
+        }
+
+        .hero-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .button-row .btn {
+          width: 100%;
+        }
+
+        .process-item {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .hero-panel-top {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .hero-panel-wrap {
+          gap: 8px;
+        }
+
+        .overview-robot {
+          height: 56px;
+          max-width: 90px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="app">
+      <svg class="icon-sprite" aria-hidden="true">
+        <symbol id="i-plug" viewBox="0 0 24 24">
+          <path d="M9 3v6" />
+          <path d="M15 3v6" />
+          <path d="M6 10h12" />
+          <path d="M7 10v2a5 5 0 0 0 10 0v-2" />
+          <path d="M12 17v4" />
+        </symbol>
+        <symbol id="i-controller" viewBox="0 0 24 24">
+          <path
+            d="M6 10h12a4 4 0 0 1 3.8 5l-.8 3a3 3 0 0 1-4.8 1.6L13 17h-2l-3.2 2.6A3 3 0 0 1 3 18l-.8-3A4 4 0 0 1 6 10z" />
+          <path d="M7.5 15h3" />
+          <path d="M9 13.5v3" />
+          <circle cx="16.6" cy="14.6" r="0.7" />
+          <circle cx="18.4" cy="16.4" r="0.7" />
+        </symbol>
+        <symbol id="i-chart" viewBox="0 0 24 24">
+          <path d="M4 20V11" />
+          <path d="M10 20V5" />
+          <path d="M16 20v-7" />
+          <path d="M22 20H2" />
+        </symbol>
+        <symbol id="i-camera" viewBox="0 0 24 24">
+          <path
+            d="M4 8h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z" />
+          <path d="M9 8l1.5-2h3L15 8" />
+          <circle cx="12" cy="14" r="3.2" />
+        </symbol>
+        <symbol id="i-database" viewBox="0 0 24 24">
+          <ellipse cx="12" cy="6" rx="7.5" ry="3.2" />
+          <path d="M4.5 6v6c0 1.8 3.4 3.2 7.5 3.2s7.5-1.4 7.5-3.2V6" />
+          <path d="M4.5 12v6c0 1.8 3.4 3.2 7.5 3.2s7.5-1.4 7.5-3.2v-6" />
+        </symbol>
+        <symbol id="i-file" viewBox="0 0 24 24">
+          <path
+            d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+          <path d="M14 3v5h5" />
+          <path d="M9 13h6" />
+          <path d="M9 17h6" />
+        </symbol>
+        <symbol id="i-cpu" viewBox="0 0 24 24">
+          <rect x="7" y="7" width="10" height="10" rx="2" />
+          <path
+            d="M10 2v3M14 2v3M10 19v3M14 19v3M19 10h3M19 14h3M2 10h3M2 14h3" />
+        </symbol>
+        <symbol id="i-gear" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3" />
+          <path
+            d="M12 2.5v2.3M12 19.2v2.3M4.8 4.8l1.6 1.6M17.6 17.6l1.6 1.6M2.5 12h2.3M19.2 12h2.3M4.8 19.2l1.6-1.6M17.6 6.4l1.6-1.6" />
+        </symbol>
+        <symbol id="i-search" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="6.8" />
+          <path d="M20 20l-4.2-4.2" />
+        </symbol>
+        <symbol id="i-play" viewBox="0 0 24 24">
+          <polygon points="8,5 19,12 8,19" fill="currentColor" stroke="none" />
+        </symbol>
+        <symbol id="i-stop" viewBox="0 0 24 24">
+          <rect
+            x="7"
+            y="7"
+            width="10"
+            height="10"
+            rx="1.5"
+            fill="currentColor"
+            stroke="none" />
+        </symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24">
+          <path d="M20 7v5h-5" />
+          <path d="M4 17v-5h5" />
+          <path d="M5.5 9A7 7 0 0 1 19 12" />
+          <path d="M18.5 15A7 7 0 0 1 5 12" />
+        </symbol>
+        <symbol id="i-save" viewBox="0 0 24 24">
+          <path
+            d="M5 3h12l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+          <path
+            d="M8 3v6h8V3"
+            fill="currentColor"
+            stroke="none"
+            opacity="0.22" />
+          <path d="M8 15h8" />
+        </symbol>
+        <symbol id="i-home" viewBox="0 0 24 24">
+          <path d="M4 11.5L12 4l8 7.5" />
+          <path d="M6.5 10.5V20h11v-9.5" />
+        </symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24">
+          <path d="M12 4.5L3.8 19h16.4L12 4.5z" />
+          <path d="M12 9v5" />
+          <circle cx="12" cy="16.6" r="0.7" />
+        </symbol>
+        <symbol id="i-record" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="7.5" />
+          <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none" />
+        </symbol>
+      </svg>
+      <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+          <div style="display: flex; justify-content: space-between">
+            <div class="hero-copy">
+              <div class="brand-lockup">
+                <img
+                  class="brand-logo"
+                  src="/static/logo.jpg"
+                  alt="XArm logo"
+                  loading="lazy"
+                  decoding="async" />
+                <!-- <div class="brand-meta"> -->
+                <!-- <span class="brand-name">XArm Control UI</span> -->
+                <!-- <span class="brand-sub">Robot Operations Console</span> -->
+                <!-- </div> -->
+              </div>
+              <!-- <span class="hero-eyebrow">Minimal Interface</span> -->
+              <!-- <div>
+              <h1>更轻的机器人控制台</h1>
+              <p class="hero-description">
+                参考极简风格重新整理控制界面，将连接状态、设备启动、数据采集与日志反馈收束到更干净的视觉层级里。
+              </p>
+            </div> -->
+              <div class="hero-tabs">
+                <span class="hero-pill">连接状态</span>
+                <span class="hero-pill">流程控制</span>
+                <span class="hero-pill">数据采集</span>
+              </div>
+            </div>
+            <img
+              class="overview-robot"
+              src="/static/jqr.png"
+              alt="机器人形象"
+              loading="lazy"
+              decoding="async" />
+          </div>
+          <div class="hero-panel-wrap">
+            <div class="hero-panel">
+              <div class="hero-panel-top">
+                <span class="hero-panel-title">系统概览</span>
+                <span
+                  :class="['status-badge', connected ? 'status-online' : 'status-offline']">
+                  {{ connected ? '已连接' : '未连接' }}
+                </span>
+              </div>
+
+              <div class="hero-grid">
+                <div class="hero-mini">
+                  <span class="hero-mini-label">运行进程</span>
+                  <span class="hero-mini-value">{{ runningProcessCount }}</span>
+                  <div class="process-bar" style="margin-top: 6px;">
+                    <span
+                      v-for="(status, name) in processes"
+                      :key="name"
+                      class="process-pill">
+                      <span :class="['process-pill-dot', status.running ? 'running' : 'stopped']"></span>
+                      {{ name }}
+                    </span>
+                    <span v-if="Object.keys(processes).length === 0" class="hero-mini-hint">无运行进程</span>
+                  </div>
+                </div>
+                <div class="hero-mini">
+                  <span class="hero-mini-label">CAN 接口</span>
+                  <span class="hero-mini-value">{{ canInterfacesUp }}</span>
+                  <span class="hero-mini-hint"
+                    >正常 / {{ canInterfaces.length || 0 }}</span
+                  >
+                </div>
+                <div class="hero-mini">
+                  <span class="hero-mini-label">检测相机</span>
+                  <span class="hero-mini-value"
+                    >{{ detectedCameras.length }}</span
+                  >
+                  <span class="hero-mini-hint">相机管理</span>
+                </div>
+                <div class="hero-mini">
+                  <span class="hero-mini-label">ROS 监控</span>
+                  <span class="hero-mini-value">{{ rosTopics.length }}</span>
+                  <span class="hero-mini-hint"
+                    >{{ rosNodes.length }} 个在线节点</span
+                  >
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- 消息提示 -->
+        <div
+          v-if="alertMessage"
+          :class="['alert', alertType === 'success' ? 'alert-success' : 'alert-error']">
+          {{ alertMessage }}
+        </div>
+
+        <div class="module-tabs">
+          <button
+            class="module-tab"
+            :class="{ 'is-active': activeModule === 'control' }"
+            @click="activeModule = 'control'">
+            CAN / 遥操作 / ROS
+          </button>
+          <button
+            class="module-tab"
+            :class="{ 'is-active': activeModule === 'capture' }"
+            @click="activeModule = 'capture'">
+            数据采集
+          </button>
+        </div>
+
+        <!-- 主功能区 -->
+        <div class="grid">
+          <!-- CAN 接口管理 -->
+          <div v-show="activeModule === 'control'" class="card card-third">
+            <h2>
+              <span class="title-icon">
+                <svg class="icon">
+                  <use href="#i-plug"></use>
+                </svg>
+              </span>
+              <span>CAN 接口管理</span>
+            </h2>
+
+            <div class="info-box">
+              <strong>
+                <svg class="icon">
+                  <use href="#i-alert"></use>
+                </svg>
+                重要：
+              </strong>
+              使用机械臂前必须先配置 CAN 接口！<br />
+              <!-- <span style="font-size: 0.9em; margin-top: 5px; display: block;">
+                            接口状态必须为 <strong style="color: #10b981;">UP</strong> 才能正常使用。<br>
+                            如果自动配置失败，请在终端手动运行：<br>
+                            <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">
+                                sudo ~/Documents/vlai/x_series/x_air/src/xarm_can/setup/setup_can_interfaces.sh
+                            </code>
+                        </span> -->
+            </div>
+
+            <div class="button-row">
+              <button class="btn btn-warning" @click="setupCanInterfaces">
+                <svg class="icon">
+                  <use href="#i-gear"></use>
+                </svg>
+                <span class="btn-label">配置 CAN 接口</span>
+              </button>
+              <button class="btn btn-info" @click="checkCanStatus">
+                <svg class="icon">
+                  <use href="#i-search"></use>
+                </svg>
+                <span class="btn-label">检查接口状态</span>
+              </button>
+            </div>
+
+            <div v-if="canInterfaces.length > 0" style="margin-top: 15px">
+              <h3 style="margin-bottom: 10px; color: #4b5563">
+                检测到的 CAN 接口 ({{ canInterfaces.length }})
+                <span
+                  v-if="canInterfacesUp > 0"
+                  style="color: #10b981; font-size: 0.9em">
+                  - {{ canInterfacesUp }} 个正常运行
+                </span>
+              </h3>
+              <div class="topic-list">
+                <div
+                  v-for="iface in canInterfaces"
+                  :key="iface.name"
+                  class="topic-item"
+                  :style="{ 'border-left': iface.is_up ? '4px solid #10b981' : '4px solid #ef4444' }">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <strong
+                      :style="{ color: iface.is_up ? '#10b981' : '#ef4444' }">
+                      {{ iface.is_up ? '✓' : '✗' }} {{ iface.name }}
+                    </strong>
+                    <span
+                      :style="{ 
+                                        fontSize: '0.8em', 
+                                        padding: '2px 8px', 
+                                        borderRadius: '12px',
+                                        background: iface.is_up ? '#d1fae5' : '#fee2e2',
+                                        color: iface.is_up ? '#065f46' : '#991b1b',
+                                        fontWeight: 'bold'
+                                    }">
+                      {{ iface.is_up ? 'UP' : 'DOWN' }}
+                    </span>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 遥操作控制 -->
+          <div v-show="activeModule === 'control'" class="card card-third">
+            <h2>
+              <span class="title-icon">
+                <svg class="icon">
+                  <use href="#i-controller"></use>
+                </svg>
+              </span>
+              <span>遥操作控制</span>
+            </h2>
+
+            <div class="form-group">
+              <label>选择机械臂</label>
+              <select v-model="teleop.armSide">
+                <option value="right_arm">右臂 (Right Arm)</option>
+                <option value="left_arm">左臂 (Left Arm)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>主臂 CAN 接口</label>
+              <div style="display: flex; gap: 8px; align-items: center">
+                <select v-model="teleop.leaderCan" style="flex: 1; min-height: 48px">
+                  <option v-if="canInterfaces.length === 0" value="can0">can0</option>
+                  <option v-for="iface in canInterfaces" :key="iface.name" :value="iface.name">
+                    {{ iface.name }} {{ iface.is_up ? '(UP)' : '(DOWN)' }}
+                  </option>
+                </select>
+                <button class="btn btn-warning" style="white-space: nowrap; padding: 10px 14px" @click="setZero(teleop.leaderCan)">
+                  <svg class="icon"><use href="#i-refresh"></use></svg>
+                  <span class="btn-label">零点</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>从臂 CAN 接口</label>
+              <div style="display: flex; gap: 8px; align-items: center">
+                <select v-model="teleop.followerCan" style="flex: 1; min-height: 48px">
+                  <option v-if="canInterfaces.length === 0" value="can1">can1</option>
+                  <option v-for="iface in canInterfaces" :key="iface.name" :value="iface.name">
+                    {{ iface.name }} {{ iface.is_up ? '(UP)' : '(DOWN)' }}
+                  </option>
+                </select>
+                <button class="btn btn-warning" style="white-space: nowrap; padding: 10px 14px" @click="setZero(teleop.followerCan)">
+                  <svg class="icon"><use href="#i-refresh"></use></svg>
+                  <span class="btn-label">零点</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group checkbox-group">
+              <input type="checkbox" id="use-ros2" v-model="teleop.useRos2" />
+              <label for="use-ros2">启用 ROS2 节点</label>
+            </div>
+
+            <div class="button-row">
+              <button
+                class="btn btn-success"
+                @click="startTeleop"
+                :disabled="isTeleopRunning">
+                <svg class="icon">
+                  <use href="#i-play"></use>
+                </svg>
+                <span class="btn-label">启动遥操作</span>
+              </button>
+              <button
+                class="btn btn-danger"
+                @click="stopTeleop"
+                :disabled="!isTeleopRunning">
+                <svg class="icon">
+                  <use href="#i-stop"></use>
+                </svg>
+                <span class="btn-label">停止遥操作</span>
+              </button>
+            </div>
+
+          </div>
+
+          <!-- ROS 系统监控 -->
+          <div v-show="activeModule === 'control'" class="card card-third">
+            <h2>
+              <span class="title-icon">
+                <svg class="icon">
+                  <use href="#i-chart"></use>
+                </svg>
+              </span>
+              <span>ROS 系统监控</span>
+            </h2>
+
+            <div class="button-row">
+              <button class="btn btn-info" @click="refreshTopics">
+                <svg class="icon">
+                  <use href="#i-refresh"></use>
+                </svg>
+                <span class="btn-label">刷新话题</span>
+              </button>
+              <button class="btn btn-info" @click="refreshNodes">
+                <svg class="icon">
+                  <use href="#i-refresh"></use>
+                </svg>
+                <span class="btn-label">刷新节点</span>
+              </button>
+            </div>
+
+            <div v-if="rosTopics.length > 0" style="margin-top: 15px">
+              <h3 style="margin-bottom: 10px; color: #4b5563">
+                活跃话题 ({{ rosTopics.length }})
+              </h3>
+              <div class="topic-list">
+                <div v-for="topic in rosTopics" :key="topic" class="topic-item">
+                  {{ topic }}
+                </div>
+              </div>
+            </div>
+
+            <div v-if="rosNodes.length > 0" style="margin-top: 15px">
+              <h3 style="margin-bottom: 10px; color: #4b5563">
+                活跃节点 ({{ rosNodes.length }})
+              </h3>
+              <div class="topic-list">
+                <div v-for="node in rosNodes" :key="node" class="topic-item">
+                  {{ node }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 数据采集 -->
+          <div v-show="activeModule === 'capture'" class="card card-capture">
+            <h2>
+              <span class="title-icon">
+                <svg class="icon">
+                  <use href="#i-database"></use>
+                </svg>
+              </span>
+              <span>数据采集</span>
+            </h2>
+
+            <div class="capture-workspace">
+              <div class="capture-main">
+            <div class="section-divider section-divider-first">
+              <h3>相机配置</h3>
+            </div>
+
+            <div class="info-box">
+              <strong>提示：</strong> 启动相机前请先检查相机连接状态
+            </div>
+
+            <div class="form-group">
+              <label>胸部相机序列号（仅D435）</label>
+              <select
+                v-if="chestCameras.length > 0"
+                v-model="camera.serialChest"
+                :disabled="isCameraConfigLocked">
+                <option value="">-- 请选择相机 --</option>
+                <option
+                  v-for="cam in chestCameras"
+                  :key="cam.serial"
+                  :value="cam.serial">
+                  {{ cam.name }} - {{ cam.serial }}
+                </option>
+              </select>
+              <input
+                v-else
+                v-model="camera.serialChest"
+                :disabled="isCameraConfigLocked"
+                placeholder="未检测到D435，请检查相机" />
+            </div>
+            <div class="form-group">
+              <label>左手腕相机序列号（仅D405，可选）</label>
+              <select
+                v-if="wristCameras.length > 0"
+                v-model="camera.serialLeft"
+                :disabled="isCameraConfigLocked">
+                <option value="">-- 不使用 --</option>
+                <option
+                  v-for="cam in wristCameras"
+                  :key="cam.serial"
+                  :value="cam.serial"
+                  :disabled="camera.serialRight === cam.serial">
+                  {{ cam.name }} - {{ cam.serial }}
+                </option>
+              </select>
+              <input
+                v-else
+                v-model="camera.serialLeft"
+                :disabled="isCameraConfigLocked"
+                placeholder="未检测到D405（可选）" />
+            </div>
+            <div class="form-group">
+              <label>右手腕相机序列号（仅D405，可选）</label>
+              <select
+                v-if="wristCameras.length > 0"
+                v-model="camera.serialRight"
+                :disabled="isCameraConfigLocked">
+                <option value="">-- 不使用 --</option>
+                <option
+                  v-for="cam in wristCameras"
+                  :key="cam.serial"
+                  :value="cam.serial"
+                  :disabled="camera.serialLeft === cam.serial">
+                  {{ cam.name }} - {{ cam.serial }}
+                </option>
+              </select>
+              <input
+                v-else
+                v-model="camera.serialRight"
+                :disabled="isCameraConfigLocked"
+                placeholder="未检测到D405（可选）" />
+            </div>
+
+            <div class="button-row">
+              <button
+                class="btn btn-info"
+                @click="checkCameras"
+                :disabled="isCameraConfigLocked">
+                <svg class="icon">
+                  <use href="#i-search"></use>
+                </svg>
+                <span class="btn-label">检查相机</span>
+              </button>
+              <button
+                class="btn btn-success"
+                @click="launchCameras"
+                :disabled="isCameraConfigLocked">
+                <svg class="icon">
+                  <use href="#i-play"></use>
+                </svg>
+                <span class="btn-label">启动相机</span>
+              </button>
+              <button
+                class="btn btn-danger"
+                @click="stopCameras"
+                :disabled="!isCameraRunning">
+                <svg class="icon">
+                  <use href="#i-stop"></use>
+                </svg>
+                <span class="btn-label">停止相机</span>
+              </button>
+            </div>
+
+            <div class="section-divider">
+              <h3>采集配置</h3>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px;">
+              <div class="form-group" style="margin-bottom: 0">
+                <label>数据集名称</label>
+                <input v-model="record.repoId" placeholder="xarm_dataset" />
+              </div>
+              <div class="form-group" style="margin-bottom: 0">
+                <label>保存路径</label>
+                <input v-model="record.root" placeholder="~/lerobot_datasets" />
+              </div>
+              <div class="form-group" style="margin-bottom: 0">
+                <label>机械臂</label>
+                <select v-model="record.armSide">
+                  <option value="right_arm">右臂 (Right Arm)</option>
+                  <option value="left_arm">左臂 (Left Arm)</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0">
+                <label>任务名称</label>
+                <input v-model="record.task" placeholder="pick and place" />
+              </div>
+              <div class="form-group" style="margin-bottom: 0">
+                <label>录制片段数</label>
+                <input type="number" v-model.number="record.numEpisodes" min="1" />
+              </div>
+              <div class="form-group checkbox-group" style="margin-bottom: 0; align-self: end; padding-bottom: 12px;">
+                <input type="checkbox" id="use-wrist" v-model="record.useWristCamera" />
+                <label for="use-wrist">使用手腕相机</label>
+              </div>
+            </div>
+
+            <div class="button-row">
+              <button
+                class="btn btn-primary"
+                @click="startRecording"
+                :disabled="isRecording">
+                <svg class="icon">
+                  <use href="#i-record"></use>
+                </svg>
+                <span class="btn-label">启动录制进程</span>
+              </button>
+              <button
+                class="btn btn-danger"
+                @click="stopRecording"
+                :disabled="!isRecording">
+                <svg class="icon">
+                  <use href="#i-stop"></use>
+                </svg>
+                <span class="btn-label">停止录制进程</span>
+              </button>
+            </div>
+
+            <!-- Episode控制 -->
+            <div v-if="isRecording" class="episode-panel">
+              <h3>Episode 控制</h3>
+              <div class="button-row button-row-fluid">
+                <button
+                  class="btn btn-success"
+                  @click="controlRecording('r')"
+                  :disabled="episodeControlBusy">
+                  <svg class="icon">
+                    <use href="#i-play"></use>
+                  </svg>
+                  <span class="btn-label">开始 Episode</span>
+                </button>
+                <button
+                  class="btn btn-warning"
+                  @click="controlRecording('h')"
+                  :disabled="episodeControlBusy">
+                  <svg class="icon">
+                    <use
+                      :href="episodeControlBusy ? '#i-refresh' : '#i-home'"></use>
+                  </svg>
+                  <span class="btn-label">
+                    {{ episodeControlBusy ? '处理中...' : '回到初始位置' }}
+                  </span>
+                </button>
+                <button
+                  class="btn btn-info"
+                  @click="controlRecording('s')"
+                  :disabled="episodeControlBusy">
+                  <svg class="icon">
+                    <use
+                      :href="episodeControlBusy ? '#i-refresh' : '#i-save'"></use>
+                  </svg>
+                  <span class="btn-label">
+                    {{ episodeControlBusy ? '保存中...' : '保存 Episode' }}
+                  </span>
+                </button>
+              </div>
+              <p class="episode-note">
+                <svg class="icon">
+                  <use href="#i-alert"></use>
+                </svg>
+                <span
+                  >提示：先点击"开始Episode"开始录制，完成后点击"保存Episode"停止并保存数据</span
+                >
+              </p>
+            </div>
+
+              </div>
+
+              <div class="capture-preview-panel">
+            <div class="multi-camera-preview">
+              <div class="multi-camera-preview-title">相机预览</div>
+              <div class="multi-camera-preview-grid">
+                <div class="multi-camera-preview-cell multi-camera-preview-cell-chest">
+                  <img
+                    v-if="cameraPreview.cam_chest"
+                    :src="cameraPreview.cam_chest"
+                    alt="胸部相机画面" />
+                  <div class="multi-camera-preview-meta">
+                    <span class="multi-camera-preview-name">胸部相机</span>
+                    <span class="multi-camera-preview-status">{{ getMultiCameraPlaceholder('chest') }}</span>
+                  </div>
+                </div>
+
+                <div class="multi-camera-preview-cell">
+                  <img
+                    v-if="cameraPreview.cam_wrist_left"
+                    :src="cameraPreview.cam_wrist_left"
+                    alt="左腕相机画面" />
+                  <div class="multi-camera-preview-meta">
+                    <span class="multi-camera-preview-name">左腕相机</span>
+                    <span class="multi-camera-preview-status">{{ getMultiCameraPlaceholder('left') }}</span>
+                  </div>
+                </div>
+
+                <div class="multi-camera-preview-cell">
+                  <img
+                    v-if="cameraPreview.cam_wrist_right"
+                    :src="cameraPreview.cam_wrist_right"
+                    alt="右腕相机画面" />
+                  <div class="multi-camera-preview-meta">
+                    <span class="multi-camera-preview-name">右腕相机</span>
+                    <span class="multi-camera-preview-status">{{ getMultiCameraPlaceholder('right') }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 系统日志 -->
+          <div class="card card-full">
+            <h2>
+              <span class="title-icon">
+                <svg class="icon">
+                  <use href="#i-file"></use>
+                </svg>
+              </span>
+              <span>系统日志</span>
+            </h2>
+            <div class="log-console" ref="logConsole">
+              <div v-for="(log, index) in logs" :key="index" class="log-entry">
+                <span :class="['log-' + log.type]">
+                  [{{ log.process }}] {{ log.message }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <script>
+      if (!window.Vue || typeof window.Vue.createApp !== "function") {
+        console.error("Vue 加载失败，页面无法初始化。");
+      } else {
+        const { createApp } = Vue;
+
+        createApp({
+          data() {
+            return {
+              connected: false,
+              socket: null,
+
+              // 遥操作配置
+              teleop: {
+                armSide: "right_arm",
+                leaderCan: "can0",
+                followerCan: "can1",
+                useRos2: true,
+              },
+
+              // 数据采集配置
+              record: {
+                repoId: "xarm_dataset",
+                root: "~/lerobot_datasets",
+                armSide: "right_arm",
+                task: "pick and place",
+                numEpisodes: 50,
+                useWristCamera: false,
+              },
+
+              // 相机配置
+              camera: {
+                mode: "multi",
+                serialChest: "",
+                serialLeft: "",
+                serialRight: "",
+              },
+              cameraPreview: {
+                cam_chest: "",
+                cam_wrist_left: "",
+                cam_wrist_right: "",
+              },
+              isCameraStarting: false,
+
+              // 系统状态
+              processes: {},
+              logs: [],
+              rosTopics: [],
+              rosNodes: [],
+              canInterfaces: [],
+              detectedCameras: [], // 检测到的相机列表
+
+              // UI状态
+              activeModule: "control",
+              alertMessage: "",
+              alertType: "success",
+              episodeControlBusy: false, // Episode控制是否正在处理中
+            };
+          },
+
+          computed: {
+            chestCameras() {
+              return this.detectedCameras.filter((cam) =>
+                /D435/i.test(cam.name),
+              );
+            },
+            wristCameras() {
+              return this.detectedCameras.filter((cam) =>
+                /D405/i.test(cam.name),
+              );
+            },
+            isTeleopRunning() {
+              const key = `teleop_${this.teleop.armSide}`;
+              return this.processes[key]?.running || false;
+            },
+
+            isRecording() {
+              const key = `recorder_${this.record.armSide}`;
+              return this.processes[key]?.running || false;
+            },
+
+            isCameraRunning() {
+              return this.processes["camera_node"]?.running || false;
+            },
+
+            isCameraConfigLocked() {
+              return this.isCameraStarting || this.isCameraRunning;
+            },
+
+            runningProcessCount() {
+              return Object.values(this.processes).filter(
+                (status) => status.running,
+              ).length;
+            },
+
+            processCount() {
+              return Object.keys(this.processes).length;
+            },
+
+            canInterfacesUp() {
+              return this.canInterfaces.filter((iface) => iface.is_up).length;
+            },
+          },
+
+          watch: {
+            "camera.serialLeft"(value) {
+              if (value && value === this.camera.serialRight) {
+                this.camera.serialLeft = "";
+                this.addLog("camera", "stderr", "左手腕和右手腕不能选择同一个相机序列号");
+              }
+            },
+
+            "camera.serialRight"(value) {
+              if (value && value === this.camera.serialLeft) {
+                this.camera.serialRight = "";
+                this.addLog("camera", "stderr", "左手腕和右手腕不能选择同一个相机序列号");
+              }
+            },
+          },
+
+          mounted() {
+            this.initWebSocket();
+            this.refreshStatus();
+
+            // 定期刷新状态
+            setInterval(() => {
+              this.refreshStatus();
+            }, 3000);
+          },
+
+          methods: {
+            getMultiCameraPlaceholder(role) {
+              const serialMap = {
+                chest: this.camera.serialChest,
+                left: this.camera.serialLeft,
+                right: this.camera.serialRight,
+              };
+              const serial = serialMap[role] || "";
+              if (!serial) {
+                return "未选择相机";
+              }
+              const previewKeyMap = {
+                chest: "cam_chest",
+                left: "cam_wrist_left",
+                right: "cam_wrist_right",
+              };
+              if (this.cameraPreview[previewKeyMap[role]]) {
+                return "预览中";
+              }
+              return this.isCameraRunning ? "相机已启动，等待图像流" : "相机尚未启动";
+            },
+
+            getServerBase() {
+              const origin = window.location.origin;
+              if (!origin || origin === "null") {
+                return "http://localhost:5000";
+              }
+              return origin;
+            },
+
+            initWebSocket() {
+              if (typeof io !== "function") {
+                this.connected = false;
+                this.addLog(
+                  "system",
+                  "stderr",
+                  "✗ Socket.IO 脚本加载失败，已仅使用 HTTP 轮询",
+                );
+                return;
+              }
+
+              this.socket = io(this.getServerBase());
+
+              this.socket.on("connect", () => {
+                this.connected = true;
+                this.addLog("system", "stdout", "✓ WebSocket 已连接");
+              });
+
+              this.socket.on("disconnect", () => {
+                this.connected = false;
+                this.addLog("system", "stderr", "✗ WebSocket 已断开");
+              });
+
+              this.socket.on("process_log", (data) => {
+                this.addLog(data.process, data.type, data.message);
+              });
+
+              this.socket.on("status_update", (status) => {
+                this.processes = status;
+              });
+            },
+
+            addLog(process, type, message) {
+              // 清理ANSI颜色代码（含ESC前缀）
+              // 注意：用 RegExp 构造器避免 Jinja2 误解双方括号为模板变量
+              message = message.replace(
+                new RegExp("\\x1b\\[" + "[0-9;]*m|\\[0m|\\[3[1-7]m", "g"),
+                "",
+              );
+
+              // 多行消息拆行递归处理
+              if (message.includes("\n")) {
+                message
+                  .split("\n")
+                  .map((l) => l.trim())
+                  .filter((l) => l.length > 0)
+                  .forEach((l) => this.addLog(process, type, l));
+                return;
+              }
+
+              // 跳过纯节点前缀行，如 "[realsense2_camera_node-1]"（无实际内容）
+              // 用 RegExp 构造器拆分，避免 Jinja2 误解双方括号
+              const nodeOnlyRe = new RegExp("^\\[" + "[\\w][\\w_-]*-\\d+\\]\\s*$");
+              if (nodeOnlyRe.test(message)) {
+                return;
+              }
+
+              // 连续相同消息去重（stdout/stderr 双流导致的镜像重复）
+              if (this.logs.length > 0) {
+                const last = this.logs[this.logs.length - 1];
+                if (last.process === process && last.message === message) {
+                  return;
+                }
+              }
+
+              // 过滤掉冗余的INFO日志，只保留关键信息
+              const skipPatterns = [
+                "Sourcing ROS2",
+                "Sourcing workspace:",
+                "Checking if",
+                "Launching multi_realsense",
+                "[INFO] [launch]:",
+                "process started with pid",
+                "RealSense ROS v",
+                // 'Device with serial number',
+                "Device with physical ID",
+                "Device with port number",
+                "Device FW version",
+                "Device Product ID",
+                "Device USB type:",
+                "Device Name:",
+                "Device Serial No:",
+                "Device physical port:",
+                "Sync Mode:",
+                "Open profile:",
+                "Stopping Sensor:",
+                "Starting Sensor:",
+                "getParameters",
+                "JSON file is not provided",
+                "Built with LibRealSense",
+                "Running with LibRealSense",
+                "All log files can be found",
+                "Default logging verbosity",
+              ];
+
+              // 检查是否应该跳过此日志
+              const shouldSkip = skipPatterns.some((pattern) =>
+                message.includes(pattern),
+              );
+              if (shouldSkip && !message.includes("ERROR")) {
+                return; // 跳过不重要的INFO日志
+              }
+
+              // 按内容覆盖类型（只在有明确信号时覆盖，避免误判）
+              if (
+                message.includes("ERROR") ||
+                /\[error\]/i.test(message) ||
+                /^Error:/i.test(message)
+              ) {
+                type = "stderr";
+              } else if (
+                message.includes("[WARN]") ||
+                message.includes("警告") ||
+                message.includes("设备不存在") ||
+                message.includes("未检测到") ||
+                message.includes("⚠")
+              ) {
+                type = "stdwarn";
+              } else if (
+                message.includes("[INFO]") ||
+                /Svt\[info\]/i.test(message) ||
+                /\[config\]/i.test(message)
+              ) {
+                type = "stdout";
+              }
+
+              this.logs.push({ process, type, message });
+              if (this.logs.length > 100) {
+                this.logs.shift();
+              }
+
+              // 自动滚动到底部
+              this.$nextTick(() => {
+                if (this.$refs.logConsole) {
+                  this.$refs.logConsole.scrollTop =
+                    this.$refs.logConsole.scrollHeight;
+                }
+              });
+            },
+
+            showAlert(message, type = "success") {
+              this.alertMessage = message;
+              this.alertType = type;
+
+              setTimeout(() => {
+                this.alertMessage = "";
+              }, 5000);
+            },
+
+            async apiCall(url, method = "GET", data = null) {
+              try {
+                const options = {
+                  method,
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                };
+
+                if (data) {
+                  options.body = JSON.stringify(data);
+                }
+
+                const response = await fetch(
+                  `${this.getServerBase()}${url}`,
+                  options,
+                );
+                const result = await response.json();
+
+                if (result.success !== undefined && result.message) {
+                  this.addLog(
+                    "system",
+                    result.success ? "stdstatus" : "stderr",
+                    result.message,
+                  );
+                }
+
+                return result;
+              } catch (error) {
+                this.addLog("system", "stderr", `请求失败: ${error.message}`);
+                return { success: false, message: error.message };
+              }
+            },
+
+            async refreshStatus() {
+              const result = await this.apiCall("/api/process/status");
+              if (result) {
+                this.processes = result;
+                if (this.isCameraStarting) {
+                  const cameraStatus = result.camera_node;
+                  if (!cameraStatus || cameraStatus.running !== undefined) {
+                    this.isCameraStarting = false;
+                  }
+                }
+              }
+            },
+
+            async startTeleop() {
+              await this.apiCall("/api/teleop/start", "POST", {
+                arm_side: this.teleop.armSide,
+                leader_can: this.teleop.leaderCan,
+                follower_can: this.teleop.followerCan,
+                use_ros2: this.teleop.useRos2,
+              });
+            },
+
+            async stopTeleop() {
+              await this.apiCall("/api/teleop/stop", "POST", {
+                arm_side: this.teleop.armSide,
+              });
+            },
+
+            async startRecording() {
+              await this.apiCall("/api/record/start", "POST", this.record);
+            },
+
+            async stopRecording() {
+              await this.apiCall("/api/record/stop", "POST", {
+                arm_side: this.record.armSide,
+              });
+            },
+
+            async controlRecording(command) {
+              const commandDesc = {
+                r: "开始录制Episode",
+                h: "机器人回到初始位置",
+                s: "保存Episode（不回零）",
+                n: "保存Episode并回到初始位置",
+              };
+
+              const commandIcon = {
+                r: "[RUN]",
+                h: "[HOME]",
+                s: "[SAVE]",
+                n: "[SAVE]",
+              };
+
+              const processingMsg = {
+                r: "正在切换录制状态...",
+                h: "正在回到初始位置，请稍候...",
+                s: "正在保存Episode，请稍候...",
+                n: "正在保存Episode并回到初始位置，请稍候...",
+              };
+
+              // 设置忙碌状态（特别是对于耗时的操作）
+              if (command === "n" || command === "h" || command === "s") {
+                this.episodeControlBusy = true;
+              }
+
+              const data = {
+                arm_side: this.record.armSide,
+                command: command,
+              };
+
+              // 在日志中显示发送的命令和处理提示
+              this.addLog(
+                "recorder",
+                "stdout",
+                `${commandIcon[command]} ${processingMsg[command]}`,
+              );
+
+              try {
+                const result = await this.apiCall(
+                  "/api/record/control",
+                  "POST",
+                  data,
+                );
+                if (result.success) {
+                  this.addLog("recorder", "stdout", `✓ ${result.message}`);
+
+                  // 对于保存操作，额外提示
+                  if (command === "n") {
+                    this.addLog(
+                      "recorder",
+                      "stdout",
+                      "提示: 等待机器人回到初始位置后，可以开始下一个 Episode",
+                    );
+                  }
+                } else {
+                  this.addLog("recorder", "stderr", `✗ ${result.message}`);
+                }
+              } finally {
+                // 清除忙碌状态
+                this.episodeControlBusy = false;
+              }
+            },
+
+            async checkCameras() {
+              const result = await this.apiCall("/api/camera/check");
+              if (result.success) {
+                // 强制 stdout，避免相机名含 "error" 被 addLog 误判为红色
+                (result.output || "")
+                  .split("\n")
+                  .map((l) => l.trim())
+                  .filter((l) => l.length > 0)
+                  .forEach((l) => this.addLog("camera", "stdout", l));
+                // 保存检测到的相机列表
+                if (result.cameras && result.cameras.length > 0) {
+                  this.detectedCameras = result.cameras;
+                  const chestCam = result.cameras.find((cam) =>
+                    /D435/i.test(cam.name),
+                  );
+                  const wristCams = result.cameras.filter((cam) =>
+                    /D405/i.test(cam.name),
+                  );
+
+                  if (!this.camera.serialChest && chestCam) {
+                    this.camera.serialChest = chestCam.serial;
+                  }
+                  if (!this.camera.serialLeft && wristCams.length > 0) {
+                    this.camera.serialLeft = wristCams[0].serial;
+                  }
+                  if (!this.camera.serialRight && wristCams.length > 1) {
+                    this.camera.serialRight = wristCams[1].serial;
+                  }
+                }
+              } else {
+                // 未检测到相机：显示友好提示，忽略原始 ROS stderr 噪音
+                const msg = result.output || result.message || "未检测到相机";
+                this.addLog("camera", "stdout", msg);
+                this.detectedCameras = [];
+              }
+            },
+
+            async launchCameras() {
+              if (this.isCameraConfigLocked) {
+                return;
+              }
+              if (
+                this.camera.serialLeft &&
+                this.camera.serialRight &&
+                this.camera.serialLeft === this.camera.serialRight
+              ) {
+                this.addLog("camera", "stderr", "左手腕和右手腕不能选择同一个相机序列号");
+                return;
+              }
+              this.isCameraStarting = true;
+              const data = {
+                config: "multi",
+                ...this.camera,
+              };
+              const result = await this.apiCall("/api/camera/launch", "POST", data);
+              if (result && result.success) {
+                this.processes.camera_node = {
+                  running: true,
+                  pid: result.pid,
+                };
+                this.isCameraStarting = false;
+                await this.refreshStatus();
+                setTimeout(() => this.startCameraPreview(), 1500);
+              } else {
+                this.isCameraStarting = false;
+              }
+            },
+
+            async stopCameras() {
+              if (!this.isCameraRunning) {
+                return;
+              }
+              await this.apiCall("/api/camera/stop", "POST");
+              this.isCameraStarting = false;
+              this.clearCameraPreview();
+            },
+
+            clearCameraPreview() {
+              this.cameraPreview.cam_chest = "";
+              this.cameraPreview.cam_wrist_left = "";
+              this.cameraPreview.cam_wrist_right = "";
+            },
+
+            async startCameraPreview() {
+              const cameraNames = [];
+              if (this.camera.serialChest) cameraNames.push("cam_chest");
+              if (this.camera.serialLeft) cameraNames.push("cam_wrist_left");
+              if (this.camera.serialRight) cameraNames.push("cam_wrist_right");
+              if (cameraNames.length === 0) {
+                return;
+              }
+
+              const result = await this.apiCall("/api/camera/preview/start", "POST", {
+                camera_names: cameraNames,
+              });
+              if (!(result && result.success)) {
+                return;
+              }
+
+              this.clearCameraPreview();
+              const base = this.getServerBase();
+              cameraNames.forEach((name) => {
+                this.cameraPreview[name] =
+                  `${base}/api/camera/preview/stream?camera_name=${encodeURIComponent(name)}&ts=${Date.now()}`;
+              });
+            },
+
+            async checkCanStatus() {
+              const result = await this.apiCall("/api/can/status");
+              if (result.success) {
+                this.canInterfaces = result.interfaces;
+                result.interfaces.forEach((iface) => {
+                  this.addLog(
+                    "can",
+                    iface.is_up ? "stdout" : "stderr",
+                    `${iface.name}: ${iface.status}`,
+                  );
+                });
+
+                // 统计状态
+                const upCount = result.interfaces.filter(
+                  (iface) => iface.is_up,
+                ).length;
+                const totalCount = result.interfaces.length;
+
+                if (upCount === totalCount && totalCount > 0) {
+                  this.addLog("can", "stdstatus", `✓ 所有 CAN 接口正常 (${upCount}/${totalCount})`);
+                } else if (upCount > 0) {
+                  this.addLog("can", "stdwarn", `部分接口未启动 (${upCount}/${totalCount} UP)`);
+                } else if (totalCount > 0) {
+                  this.addLog("can", "stderr", "✗ 所有接口未启动，请运行配置脚本");
+                } else {
+                  this.addLog("can", "stderr", "未检测到 CAN 接口设备");
+                }
+              } else {
+                this.addLog("can", "stderr", result.message);
+              }
+            },
+
+            async setZero(canIf) {
+              this.addLog("can", "stdstatus", `正在设置 ${canIf} 零点...`);
+              const result = await this.apiCall("/api/can/setzero", "POST", { can_if: canIf });
+              if (result.success) {
+                (result.output || "").split("\n").filter(l => l.trim()).forEach(l => {
+                  this.addLog("can", "stdout", l);
+                });
+              } else {
+                this.addLog("can", "stderr", result.error || result.message);
+              }
+            },
+
+            async setupCanInterfaces() {
+              this.addLog("can", "stdstatus", "正在配置 CAN 接口...");
+              const result = await this.apiCall("/api/can/setup", "POST");
+              if (result.success) {
+                (result.output || "")
+                  .split("\n")
+                  .map((l) => l.trim())
+                  .filter((l) => l.length > 0)
+                  .forEach((l) => {
+                    const isWarn =
+                      l.includes("设备不存在") ||
+                      l.includes("启动失败") ||
+                      l.includes("未检测到");
+                    this.addLog("can", isWarn ? "stdwarn" : "stdout", l);
+                  });
+                // 配置成功后自动刷新状态
+                setTimeout(() => this.checkCanStatus(), 1000);
+              } else {
+                this.addLog("can", "stderr", result.error || result.message);
+                if (result.manual_command) {
+                  this.addLog("can", "stdwarn", `手动配置命令: ${result.manual_command}`);
+                }
+              }
+            },
+
+            async refreshTopics() {
+              const result = await this.apiCall("/api/ros/topics");
+              if (result.success) {
+                this.rosTopics = result.topics;
+              }
+            },
+
+            async refreshNodes() {
+              const result = await this.apiCall("/api/ros/nodes");
+              if (result.success) {
+                this.rosNodes = result.nodes;
+              }
+            },
+          },
+        }).mount("#app");
+      }
+    </script>
+  </body>
+</html>
